@@ -1,0 +1,24 @@
+{
+  "name": "learn_multer",
+  "version": "1.0.0",
+  "description": "learn about multer",
+  "homepage": "https://github.com/Inayat-dev/multer_learn#readme",
+  "bugs": {
+    "url": "https://github.com/Inayat-dev/multer_learn/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Inayat-dev/multer_learn.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "dev":"node src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "multer": "^2.2.0"
+  }
+}
