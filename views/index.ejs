@@ -1,14 +1,480 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Send a File</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#12151c;
+    --panel:#1b202b;
+    --paper:#e9e2d1;
+    --rust:#c0623a;
+    --slate:#7c8494;
+    --moss:#74a17e;
+    --error:#c0563a;
+    --line: rgba(233,226,209,0.16);
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(192,98,58,0.08), transparent 40%),
+      radial-gradient(circle at 80% 85%, rgba(116,161,126,0.06), transparent 40%),
+      var(--ink);
+    font-family:'Inter', sans-serif;
+    color: var(--paper);
+    padding: 24px;
+  }
+
+  .label{
+    position:relative;
+    width:100%;
+    max-width:420px;
+    background: var(--panel);
+    border:1.5px dashed var(--line);
+    border-radius:4px;
+    padding: 38px 34px 30px;
+  }
+
+  /* die-cut corner ticks, like a shipping label */
+  .label::before,
+  .label::after,
+  .tick-tr,
+  .tick-br{
+    content:"";
+    position:absolute;
+    width:14px;
+    height:14px;
+    border-color: var(--slate);
+    border-style:solid;
+    pointer-events:none;
+  }
+  .label::before{ top:-1.5px; left:-1.5px; border-width:2px 0 0 2px; }
+  .label::after{ bottom:-1.5px; left:-1.5px; border-width:0 0 2px 2px; }
+  .tick-tr{ top:-1.5px; right:-1.5px; border-width:2px 2px 0 0; }
+  .tick-br{ bottom:-1.5px; right:-1.5px; border-width:0 2px 2px 0; }
+
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color: var(--slate);
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:22px;
+  }
+
+  h1{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:22px;
+    letter-spacing:-0.01em;
+    margin: 0 0 6px;
+    color: var(--paper);
+  }
+
+  .sub{
+    font-size:13.5px;
+    color: var(--slate);
+    margin:0 0 26px;
+    line-height:1.5;
+  }
+
+  /* Dropzone is now a real button, not a <label> wrapping content,
+     so it gets a proper accessible name, role and keyboard behavior. */
+  .dropzone{
+    position:relative;
+    display:block;
+    width:100%;
+    border:1.5px dashed var(--line);
+    border-radius:3px;
+    padding: 26px 18px;
+    text-align:center;
+    cursor:pointer;
+    background:none;
+    font:inherit;
+    color:inherit;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color: var(--rust);
+    background: rgba(192,98,58,0.06);
+  }
+  .dropzone:focus-visible{
+    outline: 2px solid var(--moss);
+    outline-offset: 2px;
+  }
+
+  .visually-hidden{
+    position:absolute;
+    width:1px; height:1px;
+    padding:0; margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
+
+  .drop-icon{
+    font-family:'JetBrains Mono', monospace;
+    font-size:20px;
+    color: var(--slate);
+    margin-bottom:8px;
+    letter-spacing:0.05em;
+  }
+
+  .drop-text{
+    font-size:13px;
+    color: var(--slate);
+  }
+  .drop-text b{ color: var(--paper); font-weight:500; }
+
+  .error-text{
+    display:none;
+    margin-top:10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color: var(--error);
+    letter-spacing:0.01em;
+  }
+  .error-text.show{ display:block; }
+
+  .manifest{
+    display:none;
+    margin-top:18px;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  .manifest.show{ display:block; }
+
+  .manifest-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    padding:4px 0;
+    gap:12px;
+  }
+  .manifest-row .k{ color:var(--slate); flex-shrink:0; }
+  .manifest-row .v{ color:var(--paper); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
+
+  .remove-btn{
+    margin-top:10px;
+    background:none;
+    border:none;
+    padding:0;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.05em;
+    text-decoration:underline;
+    color: var(--slate);
+    cursor:pointer;
+  }
+  .remove-btn:hover{ color: var(--paper); }
+
+  .stamp{
+    position:absolute;
+    top:20px;
+    right:32px;
+    width:58px;
+    height:58px;
+    border-radius:50%;
+    border:2px solid var(--moss);
+    color: var(--moss);
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:0.05em;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    line-height:1.2;
+    transform: rotate(-14deg) scale(0);
+    opacity:0;
+    transition: transform .32s cubic-bezier(.2,1.4,.4,1), opacity .2s ease;
+    pointer-events:none;
+  }
+  .stamp.show{
+    transform: rotate(-14deg) scale(1);
+    opacity:1;
+  }
+  .stamp.error{
+    border-color: var(--error);
+    color: var(--error);
+  }
+
+  .progress-track{
+    display:none;
+    margin-top:18px;
+    height:4px;
+    border-radius:2px;
+    background: rgba(233,226,209,0.08);
+    overflow:hidden;
+  }
+  .progress-track.show{ display:block; }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background: var(--rust);
+    transition: width .15s ease;
+  }
+
+  .status-text{
+    margin-top:8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color: var(--slate);
+    min-height:14px;
+  }
+
+  button.submit{
+    width:100%;
+    margin-top:24px;
+    padding:13px;
+    background: var(--rust);
+    color: var(--paper);
+    border:none;
+    border-radius:3px;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.01em;
+    cursor:pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  button.submit:hover:not(:disabled){ background:#a8552f; }
+  button.submit:active:not(:disabled){ transform: translateY(1px); }
+  button.submit:disabled{
+    background: var(--panel);
+    color: var(--slate);
+    border:1px solid var(--line);
+    cursor:not-allowed;
+  }
+  button.submit:focus-visible{
+    outline: 2px solid var(--moss);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .stamp, .dropzone, .progress-fill{ transition:none; }
+  }
+</style>
 </head>
 <body>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <button>submit</button>
-    </form>
+
+  <form class="label" id="form" novalidate>
+    <span class="tick-tr"></span>
+    <span class="tick-br"></span>
+
+    <div class="eyebrow">
+      <span>PARCEL / UPLOAD</span>
+      <span id="stamp-date"></span>
+    </div>
+
+    <h1>Send a file</h1>
+    <p class="sub">Drop something in, or choose it manually. One file per parcel, up to 25&nbsp;MB.</p>
+
+    <button type="button" class="dropzone" id="dropzone" aria-describedby="drop-hint">
+      <input type="file" id="fileInput" class="visually-hidden" tabindex="-1" aria-hidden="true">
+      <div class="drop-icon" aria-hidden="true">[ + ]</div>
+      <div class="drop-text" id="drop-hint"><b>Choose a file</b> or drag it here</div>
+    </button>
+
+    <p class="error-text" id="errorText" role="alert"></p>
+
+    <div class="manifest" id="manifest">
+      <div class="manifest-row"><span class="k">NAME</span><span class="v" id="m-name">—</span></div>
+      <div class="manifest-row"><span class="k">SIZE</span><span class="v" id="m-size">—</span></div>
+      <div class="manifest-row"><span class="k">TYPE</span><span class="v" id="m-type">—</span></div>
+      <button type="button" class="remove-btn" id="removeBtn">Remove file</button>
+    </div>
+
+    <div class="progress-track" id="progressTrack">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <p class="status-text" id="statusText" aria-live="polite"></p>
+
+    <div class="stamp" id="stamp" aria-hidden="true">RECEIVED<br>&#9679;</div>
+
+    <button type="submit" class="submit" id="submitBtn" disabled>Send it off</button>
+  </form>
+
+<script>
+  const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+  const UPLOAD_URL = '/upload';
+
+  const form = document.getElementById('form');
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const manifest = document.getElementById('manifest');
+  const removeBtn = document.getElementById('removeBtn');
+  const stamp = document.getElementById('stamp');
+  const submitBtn = document.getElementById('submitBtn');
+  const errorText = document.getElementById('errorText');
+  const progressTrack = document.getElementById('progressTrack');
+  const progressFill = document.getElementById('progressFill');
+  const statusText = document.getElementById('statusText');
+
+  let currentFile = null;
+  let submitting = false;
+
+  document.getElementById('stamp-date').textContent =
+    new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase();
+
+  function formatSize(bytes){
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function showError(message){
+    errorText.textContent = message;
+    errorText.classList.add('show');
+  }
+
+  function clearError(){
+    errorText.textContent = '';
+    errorText.classList.remove('show');
+  }
+
+  function resetStamp(){
+    stamp.classList.remove('show', 'error');
+  }
+
+  function clearFile(){
+    currentFile = null;
+    fileInput.value = '';
+    manifest.classList.remove('show');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Send it off';
+    resetStamp();
+    statusText.textContent = '';
+    progressTrack.classList.remove('show');
+    progressFill.style.width = '0%';
+  }
+
+  function acceptFile(file){
+    clearError();
+    if (file.size > MAX_BYTES){
+      showError(`"${file.name}" is ${formatSize(file.size)} — that's over the 25 MB limit.`);
+      clearFile();
+      return;
+    }
+    currentFile = file;
+    document.getElementById('m-name').textContent = file.name;
+    document.getElementById('m-size').textContent = formatSize(file.size);
+    document.getElementById('m-type').textContent = file.type || 'unknown';
+    manifest.classList.add('show');
+    resetStamp();
+    statusText.textContent = '';
+    submitBtn.disabled = false;
+  }
+
+  // Open the native file picker
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) acceptFile(fileInput.files[0]);
+  });
+
+  removeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearFile();
+    clearError();
+  });
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, e => {
+      e.preventDefault();
+      dropzone.classList.add('drag');
+    })
+  );
+  ['dragleave', 'dragend'].forEach(evt =>
+    dropzone.addEventListener(evt, e => {
+      e.preventDefault();
+      dropzone.classList.remove('drag');
+    })
+  );
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    const files = e.dataTransfer.files;
+    if (!files || !files.length) return;
+    if (files.length > 1){
+      showError('Only one file per parcel — drop just one.');
+      return;
+    }
+    fileInput.files = files;
+    acceptFile(files[0]);
+  });
+
+  function setSubmitting(isSubmitting){
+    submitting = isSubmitting;
+    submitBtn.disabled = isSubmitting;
+    dropzone.disabled = isSubmitting;
+    submitBtn.textContent = isSubmitting ? 'Sending…' : 'Send it off';
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!currentFile || submitting) return;
+
+    clearError();
+    setSubmitting(true);
+    progressTrack.classList.add('show');
+    progressFill.style.width = '0%';
+    statusText.textContent = 'Preparing parcel…';
+
+    const formData = new FormData();
+    formData.append('file', currentFile);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', UPLOAD_URL);
+
+    xhr.upload.addEventListener('progress', (evt) => {
+      if (evt.lengthComputable){
+        const pct = Math.round((evt.loaded / evt.total) * 100);
+        progressFill.style.width = pct + '%';
+        statusText.textContent = `Sending… ${pct}%`;
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      setSubmitting(false);
+      if (xhr.status >= 200 && xhr.status < 300){
+        progressFill.style.width = '100%';
+        statusText.textContent = 'Delivered.';
+        stamp.classList.remove('error');
+        stamp.classList.add('show');
+      } else {
+        statusText.textContent = `Server said no (${xhr.status}). Try again.`;
+        stamp.classList.add('show', 'error');
+        submitBtn.disabled = false;
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      setSubmitting(false);
+      statusText.textContent = 'Could not reach the server. Check your connection and try again.';
+      stamp.classList.add('show', 'error');
+      submitBtn.disabled = false;
+    });
+
+    xhr.send(formData);
+  });
+</script>
+
 </body>
 </html>
